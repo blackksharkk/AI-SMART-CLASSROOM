@@ -93,9 +93,9 @@ const API = "https://ai-smart-classroom-1.onrender.com";
       window.location.href = routes[data.user.role];
 
     } catch (e) {
-      errBox.textContent = "Cannot connect to server. Is Docker running?";
-      errBox.style.display = "block";
-    }
+  console.error(e);
+  errBox.textContent = "Server not responding (backend may be sleeping)";
+}
   }
 
   // Enter key support
