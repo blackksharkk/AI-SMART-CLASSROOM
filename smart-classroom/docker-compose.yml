@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5001:5000"
+    depends_on:
+      - mongo
+    environment:
+      - GEMINI_API_KEY=      # <-- Yahan apni Gemini API key daalna (free hai)
+
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db  # Data save rehega restart ke baad bhi
+
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+
+volumes:
+  mongo-data:

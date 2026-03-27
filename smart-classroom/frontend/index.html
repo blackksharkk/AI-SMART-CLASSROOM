@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Classroom — Login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="login-page">
+  <div class="login-box">
+    <h1>🎓 Smart Classroom</h1>
+    <p>Login to your account</p>
+
+    <div class="role-tabs">
+      <button class="role-tab active" onclick="setRole('student', this)">👨‍🎓 Student</button>
+      <button class="role-tab" onclick="setRole('teacher', this)">👩‍🏫 Teacher</button>
+      <button class="role-tab" onclick="setRole('admin', this)">🛡️ Admin</button>
+    </div>
+
+    <div id="error-msg" style="display:none" class="alert error"></div>
+
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="Enter email" />
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Enter password" />
+    </div>
+
+    <button class="login-btn" onclick="doLogin()">Login →</button>
+
+    <div class="login-demo">
+      <strong>Demo logins (after seeding):</strong>
+      Student: rahul@school.com / pass123<br>
+      Teacher: sharma@school.com / teacher123<br>
+      Admin: admin@school.com / admin123<br><br>
+      <small style="color:#718096">First time? Open: <a href="http://localhost:5001/seed" target="_blank">localhost:5001/seed</a></small>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = "http://localhost:5001";
+  let selectedRole = "student";
+
+  function setRole(role, el) {
+    selectedRole = role;
+    document.querySelectorAll(".role-tab").forEach(t => t.classList.remove("active"));
+    el.classList.add("active");
+  }
+
+  async function doLogin() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const errBox = document.getElementById("error-msg");
+    errBox.style.display = "none";
+
+    if (!email || !password) {
+      errBox.textContent = "Please enter email and password";
+      errBox.style.display = "block";
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        errBox.textContent = data.error || "Login failed";
+        errBox.style.display = "block";
+        return;
+      }
+
+      // Role check
+      if (data.user.role !== selectedRole) {
+        errBox.textContent = `This account is a ${data.user.role}, not a ${selectedRole}. Please select the correct role.`;
+        errBox.style.display = "block";
+        return;
+      }
+
+      // Save to localStorage
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // Redirect based on role
+      const routes = { student: "student.html", teacher: "teacher.html", admin: "admin.html" };
+      window.location.href = routes[data.user.role];
+
+    } catch (e) {
+      errBox.textContent = "Cannot connect to server. Is Docker running?";
+      errBox.style.display = "block";
+    }
+  }
+
+  // Enter key support
+  document.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+
+  // If already logged in, redirect
+  const user = localStorage.getItem("user");
+  if (user) {
+    const u = JSON.parse(user);
+    const routes = { student: "student.html", teacher: "teacher.html", admin: "admin.html" };
+    window.location.href = routes[u.role];
+  }
+</script>
+</body>
+</html>

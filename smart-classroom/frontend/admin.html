@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <h1>🎓 Smart Classroom</h1>
+  <div class="user-info">
+    <span id="nav-name">Admin</span>
+    <span>Admin Panel</span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="container">
+  <p class="page-title">Admin Dashboard 🛡️</p>
+
+  <!-- STAT CARDS -->
+  <div class="cards-row">
+    <div class="stat-card blue">
+      <div class="num" id="total-students">—</div>
+      <div class="label">Total Students</div>
+    </div>
+    <div class="stat-card green">
+      <div class="num" id="total-teachers">—</div>
+      <div class="label">Teachers</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="num" id="total-chapters">—</div>
+      <div class="label">Chapters Done</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="num" id="total-quizzes">—</div>
+      <div class="label">Quizzes Created</div>
+    </div>
+  </div>
+
+  <!-- ATTENDANCE REPORT -->
+  <div class="card">
+    <h2>📅 Student Attendance Report</h2>
+    <div id="att-report"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- CHAPTERS COMPLETED -->
+  <div class="card">
+    <h2>📖 Chapters Completed by Teachers</h2>
+    <div id="chapters-list"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- RECENT QUIZ SCORES -->
+  <div class="card">
+    <h2>🧠 Recent Quiz Results</h2>
+    <div id="quiz-results"><div class="loading">Loading...</div></div>
+  </div>
+
+</div>
+
+<script>
+  const API = "http://localhost:5001";
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const token = localStorage.getItem("token");
+
+  if (!token || user.role !== "admin") window.location.href = "index.html";
+
+  document.getElementById("nav-name").textContent = user.name;
+
+  function logout() { localStorage.clear(); window.location.href = "index.html"; }
+  function authHeader() { return { "Content-Type": "application/json", "Authorization": "Bearer " + token }; }
+
+  // ─── LOAD STATS ─────────────────────────────────────────────────────────────
+  async function loadStats() {
+    const res = await fetch(`${API}/admin/stats`, { headers: authHeader() });
+    const data = await res.json();
+
+    document.getElementById("total-students").textContent = data.totalStudents;
+    document.getElementById("total-teachers").textContent = data.totalTeachers;
+    document.getElementById("total-chapters").textContent = data.totalChapters;
+    document.getElementById("total-quizzes").textContent = data.recentQuizzes.length;
+
+    // Recent quiz results
+    if (data.recentResults.length === 0) {
+      document.getElementById("quiz-results").innerHTML = "<p style='color:#718096;font-size:14px'>No quiz results yet.</p>";
+    } else {
+      let html = "<table><thead><tr><th>Student</th><th>Topic</th><th>Score</th><th>Date</th></tr></thead><tbody>";
+      data.recentResults.forEach(r => {
+        const pct = Math.round((r.score / r.total) * 100);
+        const color = pct >= 80 ? "green" : pct >= 60 ? "orange" : "red";
+        const date = new Date(r.submittedAt).toLocaleDateString("en-IN");
+        html += `<tr><td>${r.studentName}</td><td>${r.topic}</td><td><span class="badge ${color}">${r.score}/${r.total} (${pct}%)</span></td><td>${date}</td></tr>`;
+      });
+      html += "</tbody></table>";
+      document.getElementById("quiz-results").innerHTML = html;
+    }
+  }
+
+  // ─── LOAD ATTENDANCE REPORT ──────────────────────────────────────────────────
+  async function loadAttendanceReport() {
+    const res = await fetch(`${API}/admin/attendance-report`, { headers: authHeader() });
+    const data = await res.json();
+
+    if (data.length === 0) {
+      document.getElementById("att-report").innerHTML = "<p style='color:#718096;font-size:14px'>No attendance data.</p>";
+      return;
+    }
+
+    let html = "<table><thead><tr><th>Student</th><th>Class</th><th>Present/Total</th><th>Attendance %</th><th>Status</th></tr></thead><tbody>";
+    data.forEach(d => {
+      const color = d.percentage >= 75 ? "green" : d.percentage >= 60 ? "orange" : "red";
+      const status = d.percentage >= 75 ? "✅ Good" : d.percentage >= 60 ? "⚠️ Low" : "🚨 Critical";
+      html += `<tr>
+        <td>${d.name}</td>
+        <td><span class="badge blue">${d.class}</span></td>
+        <td>${d.present}/${d.total}</td>
+        <td>
+          <div class="progress-bar" style="width:120px;display:inline-block;margin-right:8px">
+            <div class="progress-fill ${color === 'green' ? '' : color}" style="width:${d.percentage}%"></div>
+          </div>
+          ${d.percentage}%
+        </td>
+        <td>${status}</td>
+      </tr>`;
+    });
+    html += "</tbody></table>";
+    document.getElementById("att-report").innerHTML = html;
+  }
+
+  // ─── LOAD CHAPTERS ───────────────────────────────────────────────────────────
+  async function loadChapters() {
+    const res = await fetch(`${API}/admin/chapters`, { headers: authHeader() });
+    const data = await res.json();
+
+    if (data.length === 0) {
+      document.getElementById("chapters-list").innerHTML = "<p style='color:#718096;font-size:14px'>No chapters marked complete yet.</p>";
+      return;
+    }
+
+    let html = "<table><thead><tr><th>Chapter</th><th>Subject</th><th>Class</th><th>Teacher</th><th>Completed</th></tr></thead><tbody>";
+    data.forEach(c => {
+      const date = new Date(c.completedAt).toLocaleDateString("en-IN");
+      html += `<tr><td>${c.chapterName}</td><td>${c.subject}</td><td><span class="badge blue">${c.class}</span></td><td>${c.teacherName}</td><td>${date}</td></tr>`;
+    });
+    html += "</tbody></table>";
+    document.getElementById("chapters-list").innerHTML = html;
+  }
+
+  // Load everything
+  loadStats();
+  loadAttendanceReport();
+  loadChapters();
+</script>
+</body>
+</html>
