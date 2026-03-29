@@ -1,7 +1,119 @@
-<script>
-  // ✅ FIX 1: API URL
-  const API = "https://ai-smart-classroom-1.onrender.com";
+Teacher	.html original
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Teacher Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <h1>🎓 Smart Classroom</h1>
+  <div class="user-info">
+    <span id="nav-name">Teacher</span>
+    <span id="nav-subject"></span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="container">
+  <p class="page-title">Teacher Dashboard</p>
+
+  <!-- TABS -->
+  <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="showTab('attendance')">📅 Attendance</button>
+    <button class="btn btn-green" onclick="showTab('quiz')">🧠 AI Quiz</button>
+    <button class="btn btn-purple" onclick="showTab('marks')">📊 Add Marks</button>
+    <button class="btn" style="background:#718096;color:white" onclick="showTab('chapter')">📖 Chapter</button>
+  </div>
+
+  <!-- ATTENDANCE TAB -->
+  <div id="tab-attendance" class="card">
+    <h2>📅 Mark Today's Attendance</h2>
+    <div id="att-msg"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="att-date" />
+      </div>
+      <div class="form-group">
+        <label>Class</label>
+        <input type="text" id="att-class" placeholder="e.g. 10A" />
+      </div>
+      <div class="form-group" style="justify-content:flex-end">
+        <label>&nbsp;</label>
+        <button class="btn btn-primary" onclick="loadStudents()">Load Students</button>
+      </div>
+    </div>
+    <div id="student-list"></div>
+    <div id="save-att-btn" style="display:none;margin-top:16px">
+      <button class="btn btn-green" onclick="saveAttendance()">💾 Save Attendance</button>
+    </div>
+  </div>
+
+  <!-- QUIZ TAB -->
+  <div id="tab-quiz" class="card" style="display:none">
+    <h2>🧠 Generate AI Quiz</h2>
+    <div id="quiz-msg"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Topic (e.g. "Photosynthesis")</label>
+        <input type="text" id="quiz-topic" placeholder="Enter topic..." />
+      </div>
+      <div class="form-group">
+        <label>For Class</label>
+        <input type="text" id="quiz-class" placeholder="e.g. 10A" />
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="generateQuiz()" id="gen-btn">⚡ Generate Quiz (AI)</button>
+    <div id="quiz-preview" style="margin-top:20px"></div>
+    <div id="quiz-results-section" style="margin-top:20px"></div>
+  </div>
+
+  <!-- MARKS TAB -->
+  <div id="tab-marks" class="card" style="display:none">
+    <h2>📊 Add Student Marks</h2>
+    <div id="marks-msg"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Class</label>
+        <input type="text" id="marks-class" placeholder="e.g. 10A" />
+      </div>
+      <div class="form-group" style="justify-content:flex-end">
+        <label>&nbsp;</label>
+        <button class="btn btn-primary" onclick="loadStudentsForMarks()">Load Students</button>
+      </div>
+    </div>
+    <div id="marks-student-list"></div>
+  </div>
+
+  <!-- CHAPTER TAB -->
+  <div id="tab-chapter" class="card" style="display:none">
+    <h2>📖 Mark Chapter Complete</h2>
+    <div id="chapter-msg"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Chapter Name</label>
+        <input type="text" id="chapter-name" placeholder="e.g. Chapter 3: Cell Division" />
+      </div>
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="chapter-subject" placeholder="e.g. Science" />
+      </div>
+      <div class="form-group">
+        <label>Class</label>
+        <input type="text" id="chapter-class" placeholder="e.g. 10A" />
+      </div>
+    </div>
+    <button class="btn btn-green" onclick="markChapter()">✅ Mark as Complete</button>
+  </div>
+
+</div>
+
+<script>
+  const API = "http://localhost:5001";
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const token = localStorage.getItem("token");
   let students = [], currentQuizId = null;
@@ -11,9 +123,9 @@
   document.getElementById("nav-name").textContent = user.name;
   document.getElementById("nav-subject").textContent = user.subject || "";
 
+  // Set defaults
   const today = new Date().toISOString().split("T")[0];
   document.getElementById("att-date").value = today;
-
   if (user.class) {
     document.getElementById("att-class").value = user.class;
     document.getElementById("quiz-class").value = user.class;
@@ -31,7 +143,7 @@
     });
   }
 
-  // ─── ATTENDANCE ─────────────────
+  // ─── ATTENDANCE ────────────────────────────────────────────────────────────
   async function loadStudents() {
     const cls = document.getElementById("att-class").value.trim();
     if (!cls) { alert("Enter class name!"); return; }
@@ -39,125 +151,189 @@
     const res = await fetch(`${API}/class-students?class=${cls}`, { headers: authHeader() });
     students = await res.json();
 
+    if (students.length === 0) {
+      document.getElementById("student-list").innerHTML = "<p style='color:#718096'>No students in this class.</p>";
+      return;
+    }
+
     let html = "";
     students.forEach(s => {
       html += `<div class="attend-row">
         <span class="attend-name">${s.name}</span>
         <div class="attend-btns">
-          <button onclick="markAtt('${s._id}','present')">✓ Present</button>
-          <button onclick="markAtt('${s._id}','absent')">✗ Absent</button>
+          <button class="attend-btn p selected" id="p-${s._id}" onclick="markAtt('${s._id}', 'present')">✓ Present</button>
+          <button class="attend-btn a" id="a-${s._id}" onclick="markAtt('${s._id}', 'absent')">✗ Absent</button>
         </div>
       </div>`;
     });
-
     document.getElementById("student-list").innerHTML = html;
     document.getElementById("save-att-btn").style.display = "block";
   }
 
   const attStatus = {};
-  function markAtt(id, status) { attStatus[id] = status; }
+  function markAtt(id, status) {
+    attStatus[id] = status;
+    const p = document.getElementById("p-" + id);
+    const a = document.getElementById("a-" + id);
+    if (status === "present") { p.classList.add("selected"); a.classList.remove("selected"); }
+    else { a.classList.add("selected"); p.classList.remove("selected"); }
+  }
 
   async function saveAttendance() {
     const date = document.getElementById("att-date").value;
     const cls = document.getElementById("att-class").value.trim();
 
     const records = students.map(s => ({
-      studentId: s._id,
-      studentName: s.name,
-      class: cls,
-      date,
+      studentId: s._id, studentName: s.name, class: cls, date,
       status: attStatus[s._id] || "present"
     }));
 
-    await fetch(`${API}/mark-attendance`, {
-      method: "POST",
-      headers: authHeader(),
+    const res = await fetch(`${API}/mark-attendance`, {
+      method: "POST", headers: authHeader(),
       body: JSON.stringify({ records, date, class: cls })
     });
-
-    alert("Attendance Saved");
+    const data = await res.json();
+    const msg = document.getElementById("att-msg");
+    msg.className = "alert " + (res.ok ? "success" : "error");
+    msg.textContent = res.ok ? "✅ Attendance saved for " + date : data.error;
+    msg.style.display = "block";
   }
 
-  // ─── QUIZ FIX (MAIN ISSUE) ─────────────────
+  // ─── AI QUIZ ────────────────────────────────────────────────────────────────
   async function generateQuiz() {
     const topic = document.getElementById("quiz-topic").value.trim();
     const cls = document.getElementById("quiz-class").value.trim();
-
     if (!topic || !cls) { alert("Enter topic and class!"); return; }
 
     const btn = document.getElementById("gen-btn");
     btn.textContent = "⏳ Generating...";
     btn.disabled = true;
 
-    // ✅ FIX 2: correct endpoint
     const res = await fetch(`${API}/generate-quiz`, {
-      method: "POST",
-      headers: authHeader(),
+      method: "POST", headers: authHeader(),
       body: JSON.stringify({ topic, class: cls })
     });
-
     const data = await res.json();
-
     btn.textContent = "⚡ Generate Quiz (AI)";
     btn.disabled = false;
 
-    // ✅ FIX 3: handle simple backend response
-    let html = `<h3>${topic} Quiz</h3>`;
-    data.quiz.forEach((q, i) => {
-      html += `<p>${i + 1}. ${q.question}</p>`;
-      q.options.forEach(opt => {
-        html += `<div>${opt}</div>`;
-      });
-    });
+    const msg = document.getElementById("quiz-msg");
+    msg.className = "alert " + (res.ok ? "success" : "error");
+    msg.textContent = res.ok ? "✅ " + data.message : data.error;
+    msg.style.display = "block";
 
-    document.getElementById("quiz-preview").innerHTML = html;
+    if (res.ok) {
+      currentQuizId = data.quiz._id;
+      let html = `<h3 style="margin-bottom:12px">Preview — ${data.quiz.topic}</h3>`;
+      data.quiz.questions.forEach((q, i) => {
+        html += `<div class="quiz-question">
+          <p>${i + 1}. ${q.question}</p>
+          ${q.options.map(o => `<div class="quiz-option" style="cursor:default"><span>${o}</span>${o === q.answer ? ' <span class="badge green" style="margin-left:auto">Correct</span>' : ''}</div>`).join("")}
+        </div>`;
+      });
+      document.getElementById("quiz-preview").innerHTML = html;
+      document.getElementById("quiz-results-section").innerHTML = `
+        <button class="btn btn-primary" onclick="loadQuizResults()">📊 View Student Results</button>
+        <div id="results-table" style="margin-top:16px"></div>`;
+    }
   }
 
-  // ─── MARKS ─────────────────
+  async function loadQuizResults() {
+    if (!currentQuizId) return;
+    const res = await fetch(`${API}/class-quiz-results/${currentQuizId}`, { headers: authHeader() });
+    const data = await res.json();
+
+    if (data.length === 0) {
+      document.getElementById("results-table").innerHTML = "<p style='color:#718096;font-size:14px'>No submissions yet.</p>";
+      return;
+    }
+
+    let html = "<table><thead><tr><th>Student</th><th>Score</th><th>%</th></tr></thead><tbody>";
+    data.forEach(r => {
+      const pct = Math.round((r.score / r.total) * 100);
+      const color = pct >= 80 ? "green" : pct >= 60 ? "orange" : "red";
+      html += `<tr><td>${r.studentName}</td><td>${r.score}/${r.total}</td><td><span class="badge ${color}">${pct}%</span></td></tr>`;
+    });
+    html += "</tbody></table>";
+    document.getElementById("results-table").innerHTML = html;
+  }
+
+  // ─── MARKS ─────────────────────────────────────────────────────────────────
   async function loadStudentsForMarks() {
     const cls = document.getElementById("marks-class").value.trim();
+    if (!cls) { alert("Enter class name!"); return; }
+
     const res = await fetch(`${API}/class-students?class=${cls}`, { headers: authHeader() });
     const studs = await res.json();
 
+    if (studs.length === 0) {
+      document.getElementById("marks-student-list").innerHTML = "<p style='color:#718096'>No students.</p>";
+      return;
+    }
+
     let html = studs.map(s => `
-      <div>
-        ${s.name}
-        <input type="number" id="marks-${s._id}" placeholder="Marks">
-        <button onclick="saveMark('${s._id}','${s.name}','${cls}')">Save</button>
-      </div>
-    `).join("");
+      <div class="card" style="margin-bottom:12px;padding:16px">
+        <strong>${s.name}</strong>
+        <div class="form-row" style="margin-top:10px">
+          <div class="form-group">
+            <label>Exam</label>
+            <input type="text" id="exam-${s._id}" placeholder="Unit Test 1" />
+          </div>
+          <div class="form-group">
+            <label>Subject</label>
+            <input type="text" id="subj-${s._id}" value="${user.subject || ''}" />
+          </div>
+          <div class="form-group">
+            <label>Marks</label>
+            <input type="number" id="marks-${s._id}" placeholder="85" min="0" max="100" />
+          </div>
+          <div class="form-group">
+            <label>Total</label>
+            <input type="number" id="total-${s._id}" value="100" />
+          </div>
+          <div class="form-group" style="justify-content:flex-end">
+            <label>&nbsp;</label>
+            <button class="btn btn-green btn-sm" onclick="saveMark('${s._id}', '${s.name}', '${cls}')">Save</button>
+          </div>
+        </div>
+      </div>`).join("");
 
     document.getElementById("marks-student-list").innerHTML = html;
   }
 
   async function saveMark(sid, sname, cls) {
-    await fetch(`${API}/add-marks`, {
-      method: "POST",
-      headers: authHeader(),
-      body: JSON.stringify({
-        studentId: sid,
-        studentName: sname,
-        class: cls,
-        marks: 80,
-        totalMarks: 100
-      })
-    });
+    const body = {
+      studentId: sid, studentName: sname, class: cls,
+      exam: document.getElementById("exam-" + sid).value,
+      subject: document.getElementById("subj-" + sid).value,
+      marks: parseInt(document.getElementById("marks-" + sid).value),
+      totalMarks: parseInt(document.getElementById("total-" + sid).value),
+    };
 
-    alert("Marks Saved");
+    const res = await fetch(`${API}/add-marks`, {
+      method: "POST", headers: authHeader(), body: JSON.stringify(body)
+    });
+    const msg = document.getElementById("marks-msg");
+    msg.className = "alert " + (res.ok ? "success" : "error");
+    msg.textContent = res.ok ? `✅ Marks saved for ${sname}` : "Error saving marks";
+    msg.style.display = "block";
   }
 
-  // ─── CHAPTER ─────────────────
+  // ─── CHAPTER ────────────────────────────────────────────────────────────────
   async function markChapter() {
-    await fetch(`${API}/complete-chapter`, {
-      method: "POST",
-      headers: authHeader(),
-      body: JSON.stringify({
-        chapterName: document.getElementById("chapter-name").value,
-        subject: document.getElementById("chapter-subject").value,
-        class: document.getElementById("chapter-class").value
-      })
+    const body = {
+      chapterName: document.getElementById("chapter-name").value,
+      subject: document.getElementById("chapter-subject").value,
+      class: document.getElementById("chapter-class").value,
+    };
+    const res = await fetch(`${API}/complete-chapter`, {
+      method: "POST", headers: authHeader(), body: JSON.stringify(body)
     });
-
-    alert("Chapter Completed");
+    const msg = document.getElementById("chapter-msg");
+    msg.className = "alert " + (res.ok ? "success" : "error");
+    msg.textContent = res.ok ? "✅ Chapter marked complete!" : "Error";
+    msg.style.display = "block";
   }
 </script>
+</body>
+</html>
