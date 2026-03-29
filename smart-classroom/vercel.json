@@ -1,7 +1,0 @@
-{
-  "routes": [
-    { "src": "/student", "dest": "/frontend/student.html" },
-    { "src": "/teacher", "dest": "/frontend/teacher.html" },
-    { "src": "/admin", "dest": "/frontend/admin.html" }
-  ]
-}
