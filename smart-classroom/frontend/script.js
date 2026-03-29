@@ -11,18 +11,19 @@ function login(){
   // Save user in browser
   localStorage.setItem("user", username);
 
+  // 🔥 FIXED ROUTING (Vercel compatible)
   if(role === "student"){
-    window.location = "student.html";
+    window.location.href = "/student";
   }
   else if(role === "teacher"){
-    window.location = "teacher.html";
+    window.location.href = "/teacher";
   }
   else{
-    window.location = "admin.html";
+    window.location.href = "/admin";
   }
 }
 
 function logout(){
   localStorage.clear();
-  window.location = "index.html";
+  window.location.href = "/";
 }
