@@ -16,10 +16,18 @@ app.use(express.json());
 
 const JWT_SECRET = "smartclassroom_secret_2024";
 
-// ─── DATABASE CONNECTION (FIXED) ─────────────────────────────
+// ✅ DB CONNECT (IMPORTANT FIX)
+if (!process.env.MONGO_URI) {
+  console.log("❌ MONGO_URI missing in environment variables");
+  process.exit(1);
+}
+
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch(err => console.log("❌ DB Error:", err));
+  .catch(err => {
+    console.log("❌ DB Error:", err.message);
+    process.exit(1); // crash to show error clearly
+  });
 
 // ─── MODELS ──────────────────────────────────────────────────
 const User = mongoose.model("User", new mongoose.Schema({
@@ -31,108 +39,37 @@ const User = mongoose.model("User", new mongoose.Schema({
   subject: String,
 }));
 
-const Attendance = mongoose.model("Attendance", new mongoose.Schema({
-  studentId: String,
-  studentName: String,
-  class: String,
-  date: String,
-  status: { type: String, enum: ["present", "absent"] },
-}));
-
-const Marks = mongoose.model("Marks", new mongoose.Schema({
-  studentId: String,
-  studentName: String,
-  class: String,
-  subject: String,
-  exam: String,
-  marks: Number,
-  totalMarks: Number,
-}));
-
-const Quiz = mongoose.model("Quiz", new mongoose.Schema({
-  topic: String,
-  class: String,
-  createdBy: String,
-  questions: Array,
-  createdAt: { type: Date, default: Date.now },
-}));
-
-const QuizResult = mongoose.model("QuizResult", new mongoose.Schema({
-  studentId: String,
-  studentName: String,
-  quizId: String,
-  topic: String,
-  score: Number,
-  total: Number,
-  submittedAt: { type: Date, default: Date.now },
-}));
-
-const Chapter = mongoose.model("Chapter", new mongoose.Schema({
-  subject: String,
-  class: String,
-  chapterName: String,
-  teacherName: String,
-  completedAt: { type: Date, default: Date.now },
-}));
-
-// ─── AUTH MIDDLEWARE ─────────────────────────────────────────
-function auth(req, res, next) {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Login required" });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    res.status(401).json({ error: "Invalid/expired token" });
-  }
-}
-
-// ─── SEED ROUTE ─────────────────────────────────────────────
-app.get("/seed", async (req, res) => {
-  try {
-    await User.deleteMany();
-    await Attendance.deleteMany();
-    await Marks.deleteMany();
-
-    const users = [
-      { name: "Admin Sir", email: "admin@school.com", password: await bcrypt.hash("admin123", 10), role: "admin" },
-      { name: "Rahul Kumar", email: "rahul@school.com", password: await bcrypt.hash("pass123", 10), role: "student", class: "10A" },
-      { name: "Anjali Singh", email: "anjali@school.com", password: await bcrypt.hash("pass123", 10), role: "student", class: "10A" },
-      { name: "Amit Sharma", email: "amit@school.com", password: await bcrypt.hash("pass123", 10), role: "student", class: "10B" },
-      { name: "Mr. Sharma", email: "sharma@school.com", password: await bcrypt.hash("teacher123", 10), role: "teacher", subject: "Math", class: "10A" },
-      { name: "Ms. Verma", email: "verma@school.com", password: await bcrypt.hash("teacher123", 10), role: "teacher", subject: "Science", class: "10B" },
-    ];
-
-    const saved = await User.insertMany(users);
-
-    res.json({
-      message: "✅ Demo data ready!",
-      logins: [
-        { role: "Admin", email: "admin@school.com", password: "admin123" },
-        { role: "Student", email: "rahul@school.com", password: "pass123" },
-        { role: "Teacher", email: "sharma@school.com", password: "teacher123" },
-      ]
-    });
-
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: "Seed error" });
-  }
-});
-
-// ─── LOGIN ROUTE (SAFE FIXED) ───────────────────────────────
+// ─── LOGIN ROUTE ─────────────────────────────────────────────
 app.post("/login", async (req, res) => {
   try {
+    console.log("📩 Login request:", req.body);
+
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ error: "Missing email or password" });
+    }
+
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ error: "Email not found" });
+    if (!user) {
+      console.log("❌ User not found");
+      return res.status(400).json({ error: "Email not found" });
+    }
 
     const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(400).json({ error: "Wrong password" });
+    if (!ok) {
+      console.log("❌ Wrong password");
+      return res.status(400).json({ error: "Wrong password" });
+    }
 
     const token = jwt.sign(
-      { id: user._id.toString(), name: user.name, role: user.role, class: user.class, subject: user.subject },
+      {
+        id: user._id.toString(),
+        name: user.name,
+        role: user.role,
+        class: user.class,
+        subject: user.subject
+      },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -140,21 +77,47 @@ app.post("/login", async (req, res) => {
     res.json({
       message: "Login success",
       token,
-      user: { name: user.name, role: user.role, class: user.class, subject: user.subject }
+      user: {
+        name: user.name,
+        role: user.role,
+        class: user.class,
+        subject: user.subject
+      }
     });
 
   } catch (err) {
-    console.error("Login Error:", err);
+    console.error("❌ Login Error FULL:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// ─── TEST ROUTE ─────────────────────────────────────────────
-app.get("/", (req, res) => {
-  res.send("✅ Smart Classroom Backend Running!");
+// ─── SEED ROUTE ─────────────────────────────────────────────
+app.get("/seed", async (req, res) => {
+  try {
+    await User.deleteMany();
+
+    const users = [
+      { name: "Admin Sir", email: "admin@school.com", password: await bcrypt.hash("admin123", 10), role: "admin" },
+      { name: "Rahul Kumar", email: "rahul@school.com", password: await bcrypt.hash("pass123", 10), role: "student", class: "10A" },
+      { name: "Mr. Sharma", email: "sharma@school.com", password: await bcrypt.hash("teacher123", 10), role: "teacher", subject: "Math", class: "10A" },
+    ];
+
+    await User.insertMany(users);
+
+    res.json({ message: "✅ Seed done" });
+
+  } catch (err) {
+    console.log("❌ Seed error:", err);
+    res.status(500).json({ error: "Seed error" });
+  }
 });
 
-// ─── PORT FIX (IMPORTANT) ───────────────────────────────────
+// ─── TEST ───────────────────────────────────────────────────
+app.get("/", (req, res) => {
+  res.send("✅ Backend Running");
+});
+
+// ─── START ──────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
