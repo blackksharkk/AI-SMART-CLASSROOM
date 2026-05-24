@@ -7,10 +7,15 @@ const bcrypt = require("bcryptjs");
 const app = express();
 
 
+//app.use(cors({
+  //origin: "*",
+  //methods: "*",
+  //allowedHeaders: "*"
+// }));
 app.use(cors({
   origin: "*",
-  methods: "*",
-  allowedHeaders: "*"
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 app.options("*", cors());
